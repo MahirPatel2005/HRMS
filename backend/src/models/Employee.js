@@ -12,6 +12,18 @@ const employeeSchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
+        // Personal Details
+        phone: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+        dob: {
+            type: Date,
+        },
+        address: {
+            type: String,
+        },
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User',

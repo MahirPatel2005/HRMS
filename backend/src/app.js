@@ -4,6 +4,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 const authRoutes = require('./routes/authRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
 
 const app = express();
 
@@ -16,6 +18,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/departments', departmentRoutes);
 
 app.get('/', (req, res) => {
     res.send('Dayflow HRMS Backend Running');

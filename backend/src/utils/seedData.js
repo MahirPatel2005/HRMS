@@ -55,6 +55,7 @@ const seedData = async () => {
             department: hrDept._id, // Assigning to HR by default
             designation: 'Super Admin',
             status: 'ACTIVE',
+            phone: '1234567890', // Dummy phone
         });
 
         // Link employee back to user

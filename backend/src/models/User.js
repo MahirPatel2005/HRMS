@@ -10,6 +10,13 @@ const userSchema = new mongoose.Schema(
             trim: true,
             lowercase: true,
         },
+        loginId: {
+            type: String,
+            unique: true,
+            sparse: true, // Allows null/undefined for older users like Admin
+            trim: true,
+            uppercase: true,
+        },
         password: {
             type: String,
             required: true,

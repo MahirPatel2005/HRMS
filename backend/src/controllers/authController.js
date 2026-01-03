@@ -12,14 +12,33 @@ const generateToken = (id) => {
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
 // @access  Public
+// @desc    Auth user & get token
+// @route   POST /api/auth/login
+// @access  Public
 const loginUser = async (req, res) => {
-    const { email, password } = req.body;
+    // Determine if input is email or loginId
+    const { email, loginId, password, tempPassword } = req.body;
+
+    // Support "tempPassword" field from manual copy-paste
+    const passwordToUse = password || tempPassword;
+
+    if (!passwordToUse) {
+        return res.status(400).json({ success: false, message: 'Please provide a password' });
+    }
 
     try {
-        const user = await User.findOne({ email });
+        let user;
+        if (email) {
+            user = await User.findOne({ email });
+        } else if (loginId) {
+            user = await User.findOne({ loginId });
+        } else {
+            return res.status(400).json({ success: false, message: 'Please provide email or Login ID' });
+        }
 
-        if (user && (await user.matchPassword(password))) {
-            // Check if user is verified
+        if (user && (await user.matchPassword(passwordToUse))) {
+            // Check if user is verified (only for email-based login if needed, but apply globally)
+            // But active employees are auto-verified
             if (!user.isVerified) {
                 return res.status(401).json({ success: false, message: 'Please verify your email to login' });
             }
@@ -29,12 +48,13 @@ const loginUser = async (req, res) => {
                 data: {
                     _id: user._id,
                     email: user.email,
+                    loginId: user.loginId,
                     role: user.role,
                     token: generateToken(user._id),
                 },
             });
         } else {
-            res.status(401).json({ success: false, message: 'Invalid email or password' });
+            res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
