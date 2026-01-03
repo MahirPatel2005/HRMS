@@ -18,11 +18,57 @@ const employeeSchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
+        workMobile: {
+            type: String,
+            trim: true,
+        },
         dob: {
             type: Date,
         },
+        gender: {
+            type: String,
+            enum: ['MALE', 'FEMALE', 'OTHER'],
+        },
+        maritalStatus: {
+            type: String,
+            enum: ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED'],
+        },
+        nationality: {
+            type: String,
+            default: 'Indian',
+        },
         address: {
             type: String,
+        },
+        workLocation: {
+            type: String,
+            default: 'Head Office',
+        },
+        bankAccountNo: {
+            type: String,
+        },
+        manager: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Employee',
+        },
+        salaryDetails: {
+            monthWage: { type: Number, default: 0 },
+            yearWage: { type: Number, default: 0 },
+            workingDaysPerWeek: { type: Number, default: 5 },
+            breakTime: { type: Number, default: 1 }, // in hours
+
+            // Earnings
+            basicSalary: { type: Number, default: 0 },
+            hra: { type: Number, default: 0 },
+            standardAllowance: { type: Number, default: 0 },
+            performanceBonus: { type: Number, default: 0 },
+            lta: { type: Number, default: 0 },
+            fixedAllowance: { type: Number, default: 0 },
+
+            // Deductions
+            pfEmployee: { type: Number, default: 0 },
+            pfEmployer: { type: Number, default: 0 },
+            professionalTax: { type: Number, default: 0 },
         },
         user: {
             type: mongoose.Schema.Types.ObjectId,

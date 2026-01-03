@@ -1,5 +1,5 @@
 const express = require('express');
-const { clockIn, clockOut, getMyAttendance } = require('../controllers/attendanceController');
+const { clockIn, clockOut, getMyAttendance, getAttendanceStats } = require('../controllers/attendanceController');
 const { protect } = require('../middlewares/authMiddleware');
 const { firstLoginGuard } = require('../middlewares/firstLoginGuard');
 
@@ -11,5 +11,6 @@ router.use(firstLoginGuard);
 router.post('/clock-in', clockIn);
 router.post('/clock-out', clockOut);
 router.get('/me', getMyAttendance);
+router.get('/stats', getAttendanceStats);
 
 module.exports = router;

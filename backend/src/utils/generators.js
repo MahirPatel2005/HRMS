@@ -1,48 +1,35 @@
 const crypto = require('crypto');
 
-/**
- * Generate Login ID
- * Format: [Company Initials] + [Name Initials] + [Year of Joining] + [Serial Number]
- * Example: Dayflow Inc + John Doe + 2025 + 001 -> DIJD2025001
- *
- * @param {Object} company - Company object
- * @param {String} firstName - Employee First Name
- * @param {String} lastName - Employee Last Name
- * @param {Date} joiningDate - Date of joining
- * @param {Number} serialNumber - Sequential number for the employee (e.g., count + 1)
- */
+// Generate Smart Login ID
+// Format: [CompanyCode][NameCode][Year][Serial]
+// Example: OIJODO20220001
 const generateLoginId = (company, firstName, lastName, joiningDate, serialNumber) => {
-    // 1. Company Initials (First letter of each word)
-    // Clean name of special chars first
-    const cleanCompanyName = company.name.replace(/[^a-zA-Z\s]/g, '');
-    const companyInitials = cleanCompanyName
-        .split(' ')
-        .map((word) => word[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2); // Take first 2 chars just in case, or as per requirement
+    // 1. Company Code (First 2 chars of Company Name)
+    const companyCode = company.name.substring(0, 2).toUpperCase();
 
-    // 2. Name Initials (First letter of First and Last Name)
-    const nameInitials = (firstName[0] + lastName[0]).toUpperCase();
+    // 2. Name Code (First letter of First Name + First letter of Last Name)
+    // Wireframe says: "First two letters of employee's first name and last name" -> JODO (John Doe)
+    // Actually wireframe explanation: "JODO -> First two letters of employee's First name and last name"
+    // So 2 chars from First Name + 2 chars from Last Name? 
+    // Example: John Doe -> JO + DO = JODO.
+    const nameCode = (firstName.substring(0, 2) + lastName.substring(0, 2)).toUpperCase();
 
     // 3. Year of Joining
     const year = new Date(joiningDate).getFullYear();
 
-    // 4. Serial Number (Pad with 3 zeros)
-    const serial = serialNumber.toString().padStart(3, '0');
+    // 4. Serial Number (4 digits, padded)
+    const serial = String(serialNumber).padStart(4, '0');
 
-    return `${companyInitials}${nameInitials}${year}${serial}`;
+    return `${companyCode}${nameCode}${year}${serial}`;
 };
 
-/**
- * Generate a random temporary password
- * @param {number} length
- */
-const generateTempPassword = (length = 10) => {
-    return crypto.randomBytes(length).toString('hex').slice(0, length);
+// Generate Temporary Password
+const generateTempPassword = () => {
+    // 8 characters random string
+    return crypto.randomBytes(4).toString('hex');
 };
 
 module.exports = {
     generateLoginId,
-    generateTempPassword,
+    generateTempPassword
 };

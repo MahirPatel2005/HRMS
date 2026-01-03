@@ -24,7 +24,7 @@ router.put('/me', updateMe);
 
 // Upload Routes (Must be before /:id)
 router.post('/upload-avatar', authorize('EMPLOYEE'), upload.single('file'), uploadAvatar);
-router.post('/upload-document', authorize('EMPLOYEE'), upload.single('file'), uploadDocument);
+router.post('/upload-document', authorize('ADMIN', 'HR', 'EMPLOYEE'), upload.single('file'), uploadDocument);
 
 // Admin Routes for ID
 router.route('/:id')

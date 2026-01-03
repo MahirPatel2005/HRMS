@@ -131,7 +131,48 @@ const getEmployees = async (req, res) => {
             .populate('department', 'name')
             .populate('user', 'email role isVerified');
 
-        res.json({ success: true, count: employees.length, data: employees });
+        // Fetch Today's Attendance & Leaves to map statuses
+        // 1. Define Today's Range
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // 2. Fetch Attendance for Today
+        const Attendance = require('../models/Attendance');
+        const todayAttendance = await Attendance.find({
+            employee: { $in: employees.map(e => e._id) },
+            date: { $gte: startOfDay, $lte: endOfDay }
+        });
+
+        // 3. Fetch Active Leaves for Today
+        const Leave = require('../models/Leave');
+        const todayLeaves = await Leave.find({
+            employee: { $in: employees.map(e => e._id) },
+            company: req.user.company,
+            status: 'APPROVED',
+            fromDate: { $lte: endOfDay },
+            toDate: { $gte: startOfDay }
+        });
+
+        // 4. Map Status
+        const employeesWithStatus = employees.map(emp => {
+            const empObj = emp.toObject();
+
+            const isPresent = todayAttendance.find(a => a.employee.toString() === emp._id.toString());
+            const isOnLeave = todayLeaves.find(l => l.employee.toString() === emp._id.toString());
+
+            if (isPresent) {
+                empObj.attendanceStatus = 'PRESENT';
+            } else if (isOnLeave) {
+                empObj.attendanceStatus = 'ON_LEAVE'; // Plane Icon
+            } else {
+                empObj.attendanceStatus = 'ABSENT'; // Yellow Dot (Default if not present/leave)
+            }
+            return empObj;
+        });
+
+        res.json({ success: true, count: employees.length, data: employeesWithStatus });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -156,6 +197,8 @@ const updateEmployee = async (req, res) => {
         // Update fields
         const {
             firstName, lastName, department, designation, phone, dob, address,
+            workMobile, workLocation, manager, gender, maritalStatus, bankAccountNo, nationality,
+            salaryDetails
         } = req.body;
 
         employee.firstName = firstName || employee.firstName;
@@ -165,6 +208,20 @@ const updateEmployee = async (req, res) => {
         employee.phone = phone || employee.phone;
         employee.dob = dob || employee.dob;
         employee.address = address || employee.address;
+
+        // New Fields
+        if (workMobile) employee.workMobile = workMobile;
+        if (workLocation) employee.workLocation = workLocation;
+        if (manager) employee.manager = manager; // Expecting ID
+        if (gender) employee.gender = gender;
+        if (maritalStatus) employee.maritalStatus = maritalStatus;
+        if (bankAccountNo) employee.bankAccountNo = bankAccountNo;
+        if (nationality) employee.nationality = nationality;
+
+        // Salary Details (Deep Merge or Overwrite)
+        if (salaryDetails) {
+            employee.salaryDetails = { ...employee.salaryDetails, ...salaryDetails };
+        }
 
         await employee.save();
 
@@ -325,7 +382,7 @@ const uploadAvatar = async (req, res) => {
 // @access  Private (Employee)
 const uploadDocument = async (req, res) => {
     try {
-        const { type } = req.body;
+        const { type, employeeId } = req.body;
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
@@ -333,7 +390,20 @@ const uploadDocument = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Document type is required' });
         }
 
-        const employee = await Employee.findOne({ user: req.user._id });
+        let employee;
+
+        // If Admin/HR and employeeId provided, upload for that employee
+        if ((req.user.role === 'ADMIN' || req.user.role === 'HR') && employeeId) {
+            employee = await Employee.findById(employeeId);
+            // Verify Company Authorization
+            if (employee && employee.company.toString() !== req.user.company.toString()) {
+                return res.status(403).json({ success: false, message: 'Not authorized for this employee' });
+            }
+        } else {
+            // Default to self for Employee
+            employee = await Employee.findOne({ user: req.user._id });
+        }
+
         if (!employee) {
             return res.status(404).json({ success: false, message: 'Employee not found' });
         }

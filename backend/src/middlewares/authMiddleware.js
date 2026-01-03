@@ -14,18 +14,20 @@ const protect = async (req, res, next) => {
 
             // Verify token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            console.log('🔹 AuthMiddleware: Decoded Token ID:', decoded.id);
 
             // Get user from the token
             req.user = await User.findById(decoded.id).select('-password');
 
             if (!req.user) {
-                console.log('❌ Auth Middleware: User not found for ID:', decoded.id);
+                console.log('❌ AuthMiddleware: User NOT found in DB for ID:', decoded.id);
                 return res.status(401).json({ success: false, message: 'Not authorized, user not found' });
             }
+            console.log('✅ AuthMiddleware: User Authenticated:', req.user.email);
 
             next();
         } catch (error) {
-            console.error('❌ Auth Middleware Error:', error.message);
+            console.error('❌ AuthMiddleware Error:', error.message);
             res.status(401).json({ success: false, message: 'Not authorized, token failed' });
         }
     }

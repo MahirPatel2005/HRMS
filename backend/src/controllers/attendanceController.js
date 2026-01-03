@@ -71,9 +71,27 @@ const clockOut = async (req, res) => {
         const diffMins = Math.floor(diffMs / 1000 / 60);
         attendance.workDuration = diffMins;
 
+        // Calculate Work Hours & Extra Hours strings
+        const hours = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        const workHoursStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+        // Assume 9 hours is standard work day
+        let extraHoursStr = '00:00';
+        if (diffMins > 540) { // 9 * 60 = 540
+            const extraDiff = diffMins - 540;
+            const extraH = Math.floor(extraDiff / 60);
+            const extraM = extraDiff % 60;
+            extraHoursStr = `${String(extraH).padStart(2, '0')}:${String(extraM).padStart(2, '0')}`;
+        }
+
+        // Save these for frontend display ease (or return in response only if not persisting)
+        // For now, we can attach to the response object dynamically or rely on frontend to calc
+        // But requested wireframe implies strict data. 
+        // Let's add them to the response specifically.
+
         // Strict Status Logic
-        const hours = diffMins / 60;
-        if (hours >= 8) {
+        if (hours >= 9) {
             attendance.status = 'PRESENT';
         } else if (hours >= 4) {
             attendance.status = 'HALF_DAY';
@@ -83,7 +101,48 @@ const clockOut = async (req, res) => {
 
         await attendance.save();
 
-        res.json({ success: true, message: 'Clocked out successfully', data: attendance });
+        res.json({
+            success: true,
+            message: 'Clocked out successfully',
+            data: {
+                ...attendance.toObject(),
+                workHours: workHoursStr,
+                extraHours: extraHoursStr
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Get Attendance Stats
+// @route   GET /api/attendance/stats
+// @access  Private (Employee)
+const getAttendanceStats = async (req, res) => {
+    try {
+        const employeeId = req.user.employeeId;
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+        const attendanceRecords = await Attendance.find({
+            employee: employeeId,
+            date: { $gte: firstDay, $lte: lastDay }
+        });
+
+        const presentCount = attendanceRecords.filter(r => r.status === 'PRESENT').length;
+        // Mock leaves/total working days for now or calc broadly
+        // Assuming 22 workings days standard
+
+        res.json({
+            success: true,
+            data: {
+                presentDays: presentCount,
+                leavesCount: 0, // Placeholder needs Leave module integration
+                totalWorkingDays: 22 // Placeholder
+            }
+        });
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -102,7 +161,32 @@ const getMyAttendance = async (req, res) => {
             .sort({ date: -1 })
             .limit(30);
 
-        res.json({ success: true, count: attendance.length, data: attendance });
+        // Enrich data with formatted strings
+        const enrichedData = attendance.map(rec => {
+            let workHours = '00:00';
+            let extraHours = '00:00';
+
+            if (rec.workDuration) {
+                const h = Math.floor(rec.workDuration / 60);
+                const m = rec.workDuration % 60;
+                workHours = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+                if (rec.workDuration > 540) {
+                    const extra = rec.workDuration - 540;
+                    const eh = Math.floor(extra / 60);
+                    const em = extra % 60;
+                    extraHours = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+                }
+            }
+
+            return {
+                ...rec.toObject(),
+                workHours,
+                extraHours
+            };
+        });
+
+        res.json({ success: true, count: attendance.length, data: enrichedData });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -112,4 +196,5 @@ module.exports = {
     clockIn,
     clockOut,
     getMyAttendance,
+    getAttendanceStats
 };

@@ -138,6 +138,35 @@ const getAdminDashboard = async (req, res) => {
         if (realAbsentCount > 0) alerts.push(`${realAbsentCount} Employees absent today`);
         if (payrollCount === 0 && today.getDate() > 25) alerts.push(`Payroll not generated for ${today.toLocaleString('default', { month: 'long' })}`);
 
+        // 6. Attendance Trend (Last 5 Days)
+        const trend = [];
+        for (let i = 4; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+
+            const startOfDay = new Date(d); startOfDay.setUTCHours(0, 0, 0, 0);
+
+            // Re-fetch active count contextually? No, assume stable for trend viz or simple calc.
+            // Using logic: Present vs Absent
+
+            // Get attendance for this historic date
+            const dayAttendance = await Attendance.find({ date: startOfDay, employee: { $in: companyEmployeeIds } });
+
+            const dayPresent = dayAttendance.filter(a => ['PRESENT', 'HALF_DAY'].includes(a.status)).length;
+            const dayOnLeave = dayAttendance.filter(a => a.status === 'LEAVE').length;
+            // Absents usually aren't stored as records if no clock-in occurred. 
+            // So Absent = CurrentTotalActive - Present - OnLeave
+            // Limitation: If total employees changed recently, this might be slightly off historically, but acceptable for dashboard trend.
+            let dayAbsent = activeEmployees - dayPresent - dayOnLeave;
+            if (dayAbsent < 0) dayAbsent = 0; // Integrity safety
+
+            trend.push({
+                name: d.toLocaleDateString('en-US', { weekday: 'short' }), // e.g., Mon, Tue
+                Present: dayPresent,
+                Absent: dayAbsent
+            });
+        }
+
         res.json({
             success: true,
             data: {
@@ -158,6 +187,7 @@ const getAdminDashboard = async (req, res) => {
                 payroll: {
                     generatedThisMonth: payrollCount
                 },
+                trend,
                 alerts
             }
         });

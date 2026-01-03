@@ -8,6 +8,10 @@ const companySchema = new mongoose.Schema(
             trim: true,
             unique: true,
         },
+        logo: {
+            type: String, // Path or URL to logo
+            default: null
+        },
         address: {
             type: String,
             required: true,

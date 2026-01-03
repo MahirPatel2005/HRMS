@@ -1,22 +1,73 @@
-/**
- * Mock Email Service
- * Logs email credentials to console instead of sending actual email.
- */
+const nodemailer = require('nodemailer');
+
+// Configure Transporter
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || 587,
+    secure: false, // true for 465, false for other ports
+    auth: {
+        user: process.env.SMTP_USER || process.env.SMTP_EMAIL,
+        pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD,
+    },
+});
+
+const sendEmail = async (to, subject, html) => {
+    try {
+        const fromName = process.env.FROM_NAME || 'Dayflow HRMS';
+        const fromEmail = process.env.SMTP_FROM || process.env.FROM_EMAIL || '"Dayflow HRMS" <no-reply@hrms.com>';
+
+        // Construct standard format: "Name <email>"
+        const from = `"${fromName}" <${fromEmail.includes('<') ? fromEmail.match(/<([^>]+)>/)[1] : fromEmail}>`;
+
+        const info = await transporter.sendMail({
+            from: from,
+            to,
+            subject,
+            html,
+        });
+        console.log('Message sent: %s', info.messageId);
+        return true;
+    } catch (error) {
+        console.error('Error sending email:', error);
+        return false;
+    }
+};
+
 const sendWelcomeEmail = async (email, loginId, password, verifyLink) => {
-    console.log('\n==================================================');
-    console.log(`📧 SENDING WELCOME EMAIL TO: ${email}`);
-    console.log('--------------------------------------------------');
-    console.log(`Subject: Welcome to Dayflow HRMS!`);
-    console.log(`Hello,`);
-    console.log(`Your account has been created.`);
-    console.log(`Login ID: ${loginId}`);
-    console.log(`Temporary Password: ${password}`);
-    console.log(`\nPlease click here to verify your email first:\n${verifyLink}\n`);
-    console.log(`Then login and change your password immediately.`);
-    console.log('==================================================\n');
-    return true;
+    const subject = 'Welcome to Dayflow HRMS - Your Credentials';
+    const html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #2563eb;">Welcome to Dayflow HRMS!</h2>
+            <p>Your account has been successfully created.</p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p><strong>Login ID:</strong> ${loginId}</p>
+                <p><strong>Temporary Password:</strong> ${password}</p>
+            </div>
+            <p>Please verify your email address to activate your account:</p>
+            <a href="${verifyLink}" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
+            <p style="margin-top: 20px; font-size: 12px; color: #666;">If the button above doesn't work, copy and paste this link:<br>${verifyLink}</p>
+        </div>
+    `;
+    return sendEmail(email, subject, html);
+};
+
+const sendVerificationCode = async (email, code) => {
+    const subject = 'Password Reset Verification Code';
+    const html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2>Password Reset Request</h2>
+            <p>You requested to reset your password. Use the code below to proceed:</p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 24px; letter-spacing: 5px; font-weight: bold; text-align: center; color: #333;">
+                ${code}
+            </div>
+            <p>This code will expire in 10 minutes.</p>
+            <p>If you did not request this, please ignore this email.</p>
+        </div>
+    `;
+    return sendEmail(email, subject, html);
 };
 
 module.exports = {
     sendWelcomeEmail,
+    sendVerificationCode
 };

@@ -22,10 +22,21 @@ const getDaysInMonth = (monthStr) => {
 const generatePayroll = async (req, res) => {
     try {
         const { employeeId } = req.params;
-        const { month, grossSalary } = req.body; // month: "2026-01"
+        const { month } = req.body; // month: "2026-01"
 
-        if (!month || !grossSalary) {
-            return res.status(400).json({ success: false, message: 'Please provide month (YYYY-MM) and grossSalary' });
+        if (!month) {
+            return res.status(400).json({ success: false, message: 'Please provide month (YYYY-MM)' });
+        }
+
+        // Fetch Employee to get Salary Details
+        const employee = await Employee.findById(employeeId);
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        const grossSalary = employee.salaryDetails?.monthWage || 0;
+        if (!grossSalary || grossSalary <= 0) {
+            return res.status(400).json({ success: false, message: 'Employee gross salary (monthWage) is not set or is 0' });
         }
 
         // 1. Calculate Total Days in Month
