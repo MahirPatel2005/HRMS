@@ -17,6 +17,10 @@ const departmentSchema = new mongoose.Schema(
             ref: 'Employee',
             default: null,
         },
+        isActive: {
+            type: Boolean,
+            default: true,
+        },
     },
     { timestamps: true },
 );

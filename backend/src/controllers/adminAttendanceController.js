@@ -53,7 +53,7 @@ const getAllAttendance = async (req, res) => {
 // @route   POST /api/admin/attendance/import
 // @access  Private (Admin/HR)
 const importAttendance = async (req, res) => {
-    // Body: { records: [ { loginId, date, status, clockIn, clockOut } ] }
+    // Body: { records: [ { employeeCode, date, status, checkIn, checkOut } ] }
     const { records } = req.body;
 
     if (!records || !Array.isArray(records)) {
@@ -66,61 +66,80 @@ const importAttendance = async (req, res) => {
     };
 
     try {
-        // Pre-fetch all employees for this company to map Login ID -> Employee ID
-        const employees = await Employee.find({ company: req.user.company }).populate('user', 'loginId');
+        // Pre-fetch all employees for this company
+        const employees = await Employee.find({ company: req.user.company })
+            .populate('user', 'loginId');
 
-        // Create a map for quick lookup: LoginID -> EmployeeID
-        // Wait, User has LoginID. Employee has link to User.
-        // We need to look up User by loginId, then get user.employeeId?
-        // OR: Employee -> User (populated). 
-        // Let's create a Map: loginID -> employee._id
-
-        // Fetch Users with LoginIDs
-        const users = await User.find({ company: req.user.company, loginId: { $ne: null } });
-        const loginIdMap = {};
-        users.forEach(u => {
-            if (u.loginId) loginIdMap[u.loginId] = u.employeeId;
+        // Map LoginID -> EmployeeID
+        const employeeMap = {};
+        employees.forEach(emp => {
+            if (emp.user && emp.user.loginId) {
+                employeeMap[emp.user.loginId] = emp._id;
+            }
         });
 
         // Process records
         for (const record of records) {
-            const { loginId, date, status, clockIn, clockOut } = record;
+            const { employeeCode, date, checkIn, checkOut } = record;
 
             // 1. Validate Employee
-            const employeeId = loginIdMap[loginId];
+            // JSON "employeeCode" maps to User "loginId"
+            const employeeId = employeeMap[employeeCode];
             if (!employeeId) {
-                results.errors.push({ loginId, message: 'Employee not found or invalid Login ID' });
+                results.errors.push({ employeeCode, message: 'Employee not found or invalid Code' });
                 continue;
             }
 
             // 2. Validate Data
-            if (!date || !status) {
-                results.errors.push({ loginId, message: 'Missing date or status' });
+            if (!date) {
+                results.errors.push({ employeeCode, message: 'Missing date' });
                 continue;
             }
 
             const normalizedDate = new Date(date);
             normalizedDate.setUTCHours(0, 0, 0, 0);
 
-            // 3. Check for Existing Record
-            const exists = await Attendance.findOne({ employee: employeeId, date: normalizedDate });
-            if (exists) {
-                // Skip or Update? Requirement says "One attendance per day".
-                // We'll skip and report duplication
-                results.errors.push({ loginId, date, message: 'Attendance record already exists' });
-                continue;
+            // 3. Calculate Status & Duration if times provided
+            let status = 'ABSENT';
+            let workDuration = 0;
+            let clockInDate, clockOutDate;
+
+            if (checkIn && checkOut) {
+                const [inH, inM] = checkIn.split(':');
+                const [outH, outM] = checkOut.split(':');
+
+                clockInDate = new Date(normalizedDate);
+                clockInDate.setHours(inH, inM, 0, 0);
+
+                clockOutDate = new Date(normalizedDate);
+                clockOutDate.setHours(outH, outM, 0, 0);
+
+                const diffMs = clockOutDate - clockInDate;
+                workDuration = Math.floor(diffMs / 1000 / 60);
+                const hours = workDuration / 60;
+
+                if (hours >= 8) status = 'PRESENT';
+                else if (hours >= 4) status = 'HALF_DAY';
+                else status = 'ABSENT';
+            } else if (record.status) {
+                status = record.status;
             }
 
-            // 4. Create Record
-            await Attendance.create({
-                employee: employeeId,
-                date: normalizedDate,
-                status: status.toUpperCase(), // Ensure enum case
-                clockIn: clockIn ? new Date(clockIn) : undefined,
-                clockOut: clockOut ? new Date(clockOut) : undefined,
-                source: 'MACHINE',
-                workDuration: 0, // Calculate if needed, but machine might not provide precise times or calc logic differs
-            });
+            // 4. Upsert (Machine Override)
+            await Attendance.findOneAndUpdate(
+                { employee: employeeId, date: normalizedDate },
+                {
+                    employee: employeeId,
+                    date: normalizedDate,
+                    clockIn: clockInDate,
+                    clockOut: clockOutDate,
+                    workDuration,
+                    status,
+                    source: 'MACHINE' // Strict Source 'MACHINE'
+                },
+                { upsert: true, new: true }
+            );
+
             results.successCount++;
         }
 

@@ -1,5 +1,6 @@
 const Leave = require('../models/Leave');
 const Attendance = require('../models/Attendance');
+const mongoose = require('mongoose');
 
 // @desc    Get All Leaves (Admin)
 // @route   GET /api/admin/leaves
@@ -30,6 +31,10 @@ const getAllLeaves = async (req, res) => {
 // @route   PATCH /api/admin/leaves/:id/action
 // @access  Private (Admin/HR)
 const takeLeaveAction = async (req, res) => {
+    // Transaction support disabled for Standalone MongoDB
+    // const session = await mongoose.startSession();
+    // session.startTransaction();
+
     try {
         const { status, remarks } = req.body;
         const leaveId = req.params.id;
@@ -38,7 +43,7 @@ const takeLeaveAction = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid status. Use APPROVED or REJECTED' });
         }
 
-        const leave = await Leave.findById(leaveId);
+        const leave = await Leave.findById(leaveId); // .session(session);
 
         if (!leave) {
             return res.status(404).json({ success: false, message: 'Leave not found' });
@@ -56,7 +61,7 @@ const takeLeaveAction = async (req, res) => {
         leave.status = status;
         leave.actionBy = req.user._id;
         leave.remarks = remarks || leave.remarks;
-        await leave.save();
+        await leave.save(); // { session }
 
         let syncInfo = { created: 0, skipped: 0 };
 
@@ -67,33 +72,32 @@ const takeLeaveAction = async (req, res) => {
             const endDate = new Date(leave.toDate);
 
             while (currentDate <= endDate) {
-                // Normalize date
                 const normalizedDate = new Date(currentDate);
                 normalizedDate.setUTCHours(0, 0, 0, 0);
 
-                // Check existence
-                const exists = await Attendance.findOne({
-                    employee: leave.employee,
-                    date: normalizedDate,
-                });
-
-                if (!exists) {
-                    await Attendance.create({
+                // Create or Override Attendance
+                await Attendance.findOneAndUpdate(
+                    { employee: leave.employee, date: normalizedDate },
+                    {
                         employee: leave.employee,
                         date: normalizedDate,
-                        status: 'ON_LEAVE',
-                        source: 'MANUAL', // System generated, but marked manual for now or add SYSTEM enum later
-                        remarks: `Leave Applied: ${leave.type}`,
-                    });
-                    syncInfo.created++;
-                } else {
-                    syncInfo.skipped++;
-                }
+                        status: 'LEAVE',
+                        source: 'MANUAL',
+                        remarks: `Leave Approved: ${leave.type}`,
+                        workDuration: 0
+                    },
+                    { upsert: true, new: true } // { session }
+                );
+
+                syncInfo.created++;
 
                 // Next day
                 currentDate.setDate(currentDate.getDate() + 1);
             }
         }
+
+        // await session.commitTransaction();
+        // session.endSession();
 
         res.json({
             success: true,
@@ -103,6 +107,8 @@ const takeLeaveAction = async (req, res) => {
         });
 
     } catch (error) {
+        // await session.abortTransaction();
+        // session.endSession();
         res.status(500).json({ success: false, message: error.message });
     }
 };

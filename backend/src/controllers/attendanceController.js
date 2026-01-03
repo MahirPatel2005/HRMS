@@ -68,8 +68,18 @@ const clockOut = async (req, res) => {
 
         // Calculate duration in minutes
         const diffMs = attendance.clockOut - attendance.clockIn;
-        const diffMins = Math.round(((diffMs % 86400000) % 3600000) / 60000) + Math.floor(diffMs / 3600000) * 60; // Simple diff
-        attendance.workDuration = Math.floor(diffMs / 1000 / 60);
+        const diffMins = Math.floor(diffMs / 1000 / 60);
+        attendance.workDuration = diffMins;
+
+        // Strict Status Logic
+        const hours = diffMins / 60;
+        if (hours >= 8) {
+            attendance.status = 'PRESENT';
+        } else if (hours >= 4) {
+            attendance.status = 'HALF_DAY';
+        } else {
+            attendance.status = 'ABSENT';
+        }
 
         await attendance.save();
 

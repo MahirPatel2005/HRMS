@@ -1,14 +1,14 @@
 const express = require('express');
-const { getDepartments, createDepartment } = require('../controllers/departmentController');
+const { generatePayroll, getAllPayrolls } = require('../controllers/adminPayrollController');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleGuard');
 
 const router = express.Router();
 
 router.use(protect);
+router.use(authorize('ADMIN', 'HR'));
 
-router.route('/')
-    .get(authorize('ADMIN', 'HR'), getDepartments)
-    .post(authorize('ADMIN', 'HR'), createDepartment);
+router.post('/generate/:employeeId', generatePayroll);
+router.get('/', getAllPayrolls);
 
 module.exports = router;

@@ -12,6 +12,28 @@ const getDepartments = async (req, res) => {
     }
 };
 
+// @desc    Create a department (Needed for setup/testing)
+// @route   POST /api/departments
+// @access  Private (Admin/HR)
+const createDepartment = async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'Department name is required' });
+        }
+
+        const department = await Department.create({
+            name,
+            company: req.user.company
+        });
+
+        res.status(201).json({ success: true, data: department });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getDepartments,
+    createDepartment,
 };

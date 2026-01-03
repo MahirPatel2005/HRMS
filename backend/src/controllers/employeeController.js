@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 const Company = require('../models/Company');
+const Department = require('../models/Department');
 const { generateLoginId, generateTempPassword } = require('../utils/generators');
 const { sendWelcomeEmail } = require('../utils/emailService');
 
@@ -27,7 +28,23 @@ const onboardEmployee = async (req, res) => {
             return res.status(400).json({ success: false, message: 'User with this email already exists' });
         }
 
-        // 2. Format Data
+        // 2. Validate Department
+        if (department) {
+            const deptParams = await Department.findById(department);
+            if (!deptParams) {
+                return res.status(400).json({ success: false, message: 'Invalid Department ID' });
+            }
+            if (deptParams.company.toString() !== req.user.company.toString()) {
+                return res.status(403).json({ success: false, message: 'Department belongs to another company' });
+            }
+            if (!deptParams.isActive) {
+                return res.status(400).json({ success: false, message: 'Cannot onboard to an INACTIVE department' });
+            }
+        } else {
+            return res.status(400).json({ success: false, message: 'Department is required' });
+        }
+
+        // 3. Format Data
         const formattedJoiningDate = joiningDate ? new Date(joiningDate) : new Date();
 
         // 3. Generate Login Credentials
@@ -41,15 +58,21 @@ const onboardEmployee = async (req, res) => {
         const loginId = generateLoginId(company, firstName, lastName, formattedJoiningDate, employeeCount + 1);
         const tempPassword = generateTempPassword();
 
+        const crypto = require('crypto'); // Add crypto for token
+
+        // ... (inside function) 
+        const verificationToken = crypto.randomBytes(20).toString('hex');
+
         // 4. Create User Account
         const user = await User.create({
             email,
-            loginId, // <--- Saving the generated Login ID
-            password: tempPassword, // Will be hashed by model
+            loginId,
+            password: tempPassword,
             role: 'EMPLOYEE',
             company: req.user.company,
-            isVerified: true, // Auto-verified since admin created it
-            // We haven't added isFirstLogin to User model yet, assuming flow manages itself or user changes pwd
+            isVerified: false, // Strict: Admin-created users must verify email
+            verificationToken,
+            isFirstLogin: true,
         });
 
         // 5. Create Employee Profile
@@ -72,17 +95,19 @@ const onboardEmployee = async (req, res) => {
         await user.save();
 
         // 7. Send Welcome Email
-        await sendWelcomeEmail(email, loginId, tempPassword);
+        // Mocking the verification link
+        const verifyLink = `http://localhost:5001/api/auth/verify-email?token=${verificationToken}`;
+        await sendWelcomeEmail(email, loginId, tempPassword, verifyLink); // Need to update emailService too
 
-        console.log('DEBUG: Sending response with:', { loginId, tempPassword }); // <--- DEBUG LOG
+        console.log('DEBUG: Sending response with:', { loginId, tempPassword, verifyLink }); // <--- DEBUG LOG
 
         res.status(201).json({
             success: true,
-            message: 'Employee onboarded successfully',
+            message: 'Employee onboarded successfully. Please verify email.',
             data: {
                 employee,
-                loginId, // Returning here for testing convenience
-                tempPassword, // Added for testing convenience
+                loginId,
+                tempPassword,
             },
         });
     } catch (error) {
@@ -218,11 +243,60 @@ const updateMe = async (req, res) => {
     }
 };
 
+// @desc    Soft delete employee (Deactivate)
+// @route   DELETE /api/employees/:id
+// @access  Private (Admin/HR)
+const deleteEmployee = async (req, res) => {
+    try {
+        const employee = await Employee.findById(req.params.id);
+
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        if (employee.company.toString() !== req.user.company.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        employee.status = 'INACTIVE';
+        await employee.save();
+
+        res.json({ success: true, message: 'Employee deactivated successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Get single employee by ID
+// @route   GET /api/employees/:id
+// @access  Private (Admin/HR)
+const getEmployeeById = async (req, res) => {
+    try {
+        const employee = await Employee.findById(req.params.id)
+            .populate('department', 'name')
+            .populate('user', 'email role isVerified');
+
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        if (employee.company.toString() !== req.user.company.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        res.json({ success: true, data: employee });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     onboardEmployee,
     getEmployees,
+    getEmployeeById,
     updateEmployee,
     updateEmployeeStatus,
+    deleteEmployee,
     getMe,
     updateMe,
 };

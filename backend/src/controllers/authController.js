@@ -88,8 +88,31 @@ const changePassword = async (req, res) => {
 // @route   GET /api/auth/verify-email
 // @access  Public
 const verifyEmail = async (req, res) => {
-    // Logic for email verification would go here (e.g. checking token against DB)
-    res.json({ success: true, message: 'Email verified successfully' });
+    const { token } = req.query;
+
+    if (!token) {
+        return res.status(400).json({ success: false, message: 'Invalid token' });
+    }
+
+    try {
+        const user = await User.findOne({ verificationToken: token });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired verification token' });
+        }
+
+        user.isVerified = true;
+        user.verificationToken = undefined;
+        await user.save();
+
+        // In a real app, redirect to frontend login page
+        res.status(200).send(`
+            <h1>Email Verified Successfully</h1>
+            <p>You can now login with your Login ID and Temporary Password.</p>
+        `);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
 };
 
 module.exports = {

@@ -28,19 +28,22 @@ const applyLeave = async (req, res) => {
             return res.status(400).json({ success: false, message: 'To Date cannot be before From Date' });
         }
 
-        // 2. Validation: Overlap Check
-        // Find any leave for this employee where ranges overlap
-        // (StartA <= EndB) and (EndA >= StartB)
+        // 2. Validation: Strict Overlap Check
+        // Find if any leave exists that overlaps with [start, end]
+        // Condition: (ExistingStart <= NewEnd) AND (ExistingEnd >= NewStart)
         const overlap = await Leave.findOne({
             employee: employeeId,
             status: { $in: ['PENDING', 'APPROVED'] },
             $or: [
-                { fromDate: { $lte: end }, toDate: { $gte: start } }
+                {
+                    fromDate: { $lte: end },
+                    toDate: { $gte: start }
+                }
             ]
         });
 
         if (overlap) {
-            return res.status(400).json({ success: false, message: 'You already have a leave applied/approved for this period' });
+            return res.status(400).json({ success: false, message: 'Leave overlaps with an existing application' });
         }
 
         const days = calculateDays(start, end);
