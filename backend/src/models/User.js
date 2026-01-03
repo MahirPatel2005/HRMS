@@ -40,6 +40,10 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        isFirstLogin: {
+            type: Boolean,
+            default: true,
+        },
         verificationToken: String,
     },
     { timestamps: true },

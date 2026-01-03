@@ -50,6 +50,7 @@ const loginUser = async (req, res) => {
                     email: user.email,
                     loginId: user.loginId,
                     role: user.role,
+                    isFirstLogin: user.isFirstLogin, // Frontend can redirect if true
                     token: generateToken(user._id),
                 },
             });
@@ -72,6 +73,7 @@ const changePassword = async (req, res) => {
 
         if (user && (await user.matchPassword(currentPassword))) {
             user.password = newPassword; // Will be hashed by pre-save hook
+            user.isFirstLogin = false; // Mark as no longer first login
             await user.save();
             res.json({ success: true, message: 'Password updated successfully' });
         } else {
