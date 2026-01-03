@@ -1,4 +1,5 @@
 const express = require('express');
+const dotenv = require('dotenv');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -46,12 +47,7 @@ app.get('/', (req, res) => {
 });
 
 // Error Handling Middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        success: false,
-        message: 'Internal Server Error',
-    });
-});
+const { errorHandler } = require('./middlewares/errorMiddleware');
+app.use(errorHandler);
 
 module.exports = app;
