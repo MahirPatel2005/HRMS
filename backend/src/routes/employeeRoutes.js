@@ -1,10 +1,11 @@
 const express = require('express');
 const {
-    onboardEmployee, getEmployees, getEmployeeById, updateEmployee, updateEmployeeStatus, deleteEmployee, getMe, updateMe,
+    onboardEmployee, getEmployees, getEmployeeById, updateEmployee, updateEmployeeStatus, deleteEmployee, getMe, updateMe, uploadAvatar, uploadDocument
 } = require('../controllers/employeeController');
 const { protect } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleGuard');
 const { firstLoginGuard } = require('../middlewares/firstLoginGuard');
+const upload = require('../middleware/uploadMiddleware'); // Import Multer
 
 const router = express.Router();
 
@@ -17,10 +18,15 @@ router.route('/')
     .post(authorize('ADMIN', 'HR'), onboardEmployee)
     .get(authorize('ADMIN', 'HR'), getEmployees);
 
-// Employee Self-Service (Must be before /:id routes)
+// Employee Self-Service
 router.get('/me', getMe);
 router.put('/me', updateMe);
 
+// Upload Routes (Must be before /:id)
+router.post('/upload-avatar', authorize('EMPLOYEE'), upload.single('file'), uploadAvatar);
+router.post('/upload-document', authorize('EMPLOYEE'), upload.single('file'), uploadDocument);
+
+// Admin Routes for ID
 router.route('/:id')
     .get(authorize('ADMIN', 'HR'), getEmployeeById)
     .put(authorize('ADMIN', 'HR'), updateEmployee)

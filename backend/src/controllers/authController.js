@@ -43,6 +43,27 @@ const loginUser = async (req, res) => {
                 return res.status(401).json({ success: false, message: 'Please verify your email to login' });
             }
 
+            // Helper to log
+            const { logAction } = require('../utils/auditLogger');
+            // Note: req.user is not set in login before this? 
+            // Wait, req.user is middleware populated. Here we just found the User.
+            // We must mock req.user for the logger or pass details manually?
+            // auditLogger expects req.user. Let's manually trigger log with constructed object or update logger.
+            // Easier: update auditLogger to accept user object OR just manually create log here.
+            // Let's manually create log here or simple mock.
+
+            // Actually, let's keep it simple and just do it here for now or update logger.
+            // Creating audit log manually for Login is cleaner.
+            const AuditLog = require('../models/AuditLog');
+            await AuditLog.create({
+                action: 'USER_LOGIN',
+                entity: 'AUTH',
+                entityId: user._id,
+                performedBy: user._id,
+                company: user.company,
+                metadata: { ip: req.ip }
+            });
+
             res.json({
                 success: true,
                 data: {

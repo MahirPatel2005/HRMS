@@ -99,6 +99,14 @@ const onboardEmployee = async (req, res) => {
         const verifyLink = `http://localhost:5001/api/auth/verify-email?token=${verificationToken}`;
         await sendWelcomeEmail(email, loginId, tempPassword, verifyLink); // Need to update emailService too
 
+        // --- PHASE 7 TRIGGERS ---
+        const { logAction } = require('../utils/auditLogger');
+        const { createNotification } = require('../utils/notificationService');
+
+        await logAction(req, 'EMPLOYEE_CREATED', 'EMPLOYEE', employee._id, { loginId });
+        await createNotification(user._id, req.user.company, 'Welcome to Dayflow!', 'Your account has been created. Please complete your profile.', 'INFO');
+        // ------------------------
+
         console.log('DEBUG: Sending response with:', { loginId, tempPassword, verifyLink }); // <--- DEBUG LOG
 
         res.status(201).json({
@@ -290,6 +298,65 @@ const getEmployeeById = async (req, res) => {
     }
 };
 
+// @desc    Upload Profile Picture
+// @route   POST /api/employees/upload-avatar
+// @access  Private (Employee)
+const uploadAvatar = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+
+        const employee = await Employee.findOne({ user: req.user._id });
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        const fileUrl = `/api/media/${req.file.filename}`;
+        employee.profilePictureUrl = fileUrl;
+        await employee.save();
+
+        res.json({ success: true, message: 'Avatar updated', data: { url: fileUrl } });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Upload Document
+// @route   POST /api/employees/upload-document
+// @access  Private (Employee)
+const uploadDocument = async (req, res) => {
+    try {
+        const { type } = req.body;
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+        if (!type) {
+            return res.status(400).json({ success: false, message: 'Document type is required' });
+        }
+
+        const employee = await Employee.findOne({ user: req.user._id });
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        const fileUrl = `/api/media/${req.file.filename}`;
+
+        employee.documents.push({
+            type,
+            url: fileUrl,
+            originalName: req.file.originalname,
+            mimeType: req.file.mimetype
+        });
+
+        await employee.save();
+
+        res.json({ success: true, message: 'Document uploaded', data: employee.documents });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     onboardEmployee,
     getEmployees,
@@ -299,4 +366,6 @@ module.exports = {
     deleteEmployee,
     getMe,
     updateMe,
+    uploadAvatar,
+    uploadDocument
 };

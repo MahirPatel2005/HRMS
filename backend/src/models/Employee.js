@@ -48,6 +48,22 @@ const employeeSchema = new mongoose.Schema(
             type: Date,
             default: Date.now,
         },
+        profilePictureUrl: {
+            type: String,
+        },
+        documents: [
+            {
+                type: {
+                    type: String,
+                    enum: ['ID_PROOF', 'OFFER_LETTER', 'CERTIFICATE', 'OTHER'],
+                    required: true
+                },
+                url: { type: String, required: true },
+                originalName: String,
+                mimeType: String,
+                uploadedAt: { type: Date, default: Date.now }
+            }
+        ],
         status: {
             type: String,
             enum: ['ACTIVE', 'INACTIVE', 'ON_LEAVE', 'TERMINATED'],

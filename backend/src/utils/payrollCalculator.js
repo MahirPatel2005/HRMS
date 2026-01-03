@@ -17,7 +17,8 @@ const calculatePayroll = (grossSalary, payableDays, totalDaysInMonth) => {
     // 2. Calculate Deductions (Based on Basic)
     const pf = Math.round(basic * 0.12);
     const insurance = Math.round(basic * 0.02);
-    const totalDeductions = pf + insurance;
+    // Fixed total deductions for reference (full month)
+    // const totalDeductions = pf + insurance;
 
     // 3. Calculate Net Salary
     // Formula: (Gross / TotalDays) * PayableDays - Deductions
@@ -29,18 +30,10 @@ const calculatePayroll = (grossSalary, payableDays, totalDaysInMonth) => {
     const dailyWage = grossSalary / totalDaysInMonth;
     const earnedGross = Math.round(dailyWage * payableDays);
 
-    // Deductions: Full deduction or pro-rated? 
-    // Usually PF is on Earned Basic. Let's start with Fixed % of Fixed Basic for simplicity, 
-    // OR more accurately: PF = 12% of (Earned Basic).
-    // Let's stick to the user's prompt example which implied checking against "Basic" derived from Gross.
-    // However, for "Net Salary", we must subtract deductions from the amount earned.
+    // Calculate Earned Basic (Pro-rata)
+    const earnedBasic = Math.round((basic / totalDaysInMonth) * payableDays);
 
-    // User Prompt Logic:
-    // "PF = 12% of Basic" (Implies fixed basic or earned basic?)
-    // Let's assume standard practice: PF is calculated on EARNED basic.
-    // Earned Basic = (Fixed Basic / Total Days) * Payable Days
-
-    const earnedBasic = (basic / totalDaysInMonth) * payableDays;
+    // Deductions on Earned Basic
     const earnedPF = Math.round(earnedBasic * 0.12);
     const earnedInsurance = Math.round(earnedBasic * 0.02);
     const earnedDeductions = earnedPF + earnedInsurance;
@@ -49,15 +42,16 @@ const calculatePayroll = (grossSalary, payableDays, totalDaysInMonth) => {
 
     return {
         salaryStructure: {
-            basic, // Storing the "Fixed" structure for reference
+            basic,
             hra,
             conveyance,
-            pf, // Fixed PF
+            pf, // Fixed structure shown for reference
             insurance
         },
         calculated: {
             earnedGross,
-            earnedDeductions: earnedDeductions,
+            earnedBasic,
+            earnedDeductions,
             netSalary: Math.round(netSalary)
         }
     };

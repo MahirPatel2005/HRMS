@@ -99,9 +99,17 @@ const takeLeaveAction = async (req, res) => {
         // await session.commitTransaction();
         // session.endSession();
 
+        // --- PHASE 7 TRIGGERS ---
+        const { logAction } = require('../utils/auditLogger');
+        const { createNotification } = require('../utils/notificationService');
+
+        await logAction(req, `LEAVE_${status}`, 'LEAVE', leave._id, { type: leave.type, days: leave.days });
+        await createNotification(leave.employee.user, req.user.company, `Leave Request ${status}`, `Your leave request for ${leave.fromDate} has been ${status}.`, status === 'APPROVED' ? 'ACTION' : 'ALERT');
+        // ------------------------
+
         res.json({
             success: true,
-            message: `Leave ${status}`,
+            message: `Leave ${status} successfully`,
             data: leave,
             sync: status === 'APPROVED' ? syncInfo : undefined,
         });

@@ -55,10 +55,26 @@ const generatePayroll = async (req, res) => {
 
         let payableDays = 0;
         attendanceRecords.forEach(record => {
-            if (record.status === 'PRESENT' || record.status === 'ON_LEAVE') {
+            if (record.status === 'PRESENT' || record.status === 'REMOTE') {
                 payableDays += 1;
             } else if (record.status === 'HALF_DAY') {
                 payableDays += 0.5;
+            } else if (record.status === 'LEAVE') {
+                // Check if UNPAID
+                // Phase 4 populates remarks: "Leave Approved: UNPAID"
+                if (record.remarks && record.remarks.includes('UNPAID')) {
+                    payableDays += 0;
+                } else {
+                    payableDays += 1;
+                }
+            } else if (record.status === 'ON_LEAVE') {
+                // Handling legacy/alternate status if any, though we switched to LEAVE in Phase 4.
+                // Just in case Phase 4 wasn't fully migrated in all paths.
+                if (record.remarks && record.remarks.includes('UNPAID')) {
+                    payableDays += 0;
+                } else {
+                    payableDays += 1;
+                }
             }
         });
 

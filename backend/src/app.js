@@ -12,6 +12,9 @@ const leaveRoutes = require('./routes/leaveRoutes');
 const adminLeaveRoutes = require('./routes/adminLeaveRoutes');
 const payrollRoutes = require('./routes/payrollRoutes');
 const adminPayrollRoutes = require('./routes/adminPayrollRoutes');
+const mediaRoutes = require('./routes/mediaRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const auditLogRoutes = require('./routes/auditLogRoutes');
 
 const app = express();
 
@@ -32,6 +35,9 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/admin/leaves', adminLeaveRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/admin/payroll', adminPayrollRoutes);
+app.use('/api/media', mediaRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin/audit-logs', auditLogRoutes);
 
 app.get('/', (req, res) => {
     res.send('Dayflow HRMS Backend Running');
