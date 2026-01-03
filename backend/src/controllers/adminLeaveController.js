@@ -43,7 +43,7 @@ const takeLeaveAction = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid status. Use APPROVED or REJECTED' });
         }
 
-        const leave = await Leave.findById(leaveId); // .session(session);
+        const leave = await Leave.findById(leaveId).populate('employee'); // .session(session);
 
         if (!leave) {
             return res.status(404).json({ success: false, message: 'Leave not found' });

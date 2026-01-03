@@ -107,8 +107,6 @@ const onboardEmployee = async (req, res) => {
         await createNotification(user._id, req.user.company, 'Welcome to Dayflow!', 'Your account has been created. Please complete your profile.', 'INFO');
         // ------------------------
 
-        console.log('DEBUG: Sending response with:', { loginId, tempPassword, verifyLink }); // <--- DEBUG LOG
-
         res.status(201).json({
             success: true,
             message: 'Employee onboarded successfully. Please verify email.',
